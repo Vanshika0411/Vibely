@@ -13,9 +13,9 @@ messageRouter.get("/:userId", sseController);
 messageRouter.post(
   "/send",
   upload.single("image"),
-  ProcessingInstruction,
+  protect,
   sendMessage
 );
-messageRouter.post("/get", ProcessingInstruction, getChatMessages);
+messageRouter.post("/get", protect, getChatMessages);
 
 export default messageRouter;
