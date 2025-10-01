@@ -1,19 +1,35 @@
 import React, { useState, useEffect } from 'react'
-// import { dummyPostsData } from '../assets/assets'
-import { dummyPostsData, assets } from '../assets/assets'
+import { assets } from '../assets/assets'
 import Loading from '../components/Loading'
 import StoriesBar from '../components/StoriesBar'
 import PostCard from '../components/PostCard'
 import RecentMessages from '../components/RecentMessages'
-
+import { useAuth } from '@clerk/clerk-react'
+import api from '../api/axios'
+import toast from "react-hot-toast";
 
 const Feed = () => {
-
-  const [feeds, setfeeds] = useState([])
+  const [feeds, setFeeds] = useState([])
   const [loading, setLoading] = useState(true)
+  const { getToken } = useAuth()
 
   const fetchFeeds = async () => {
-    setfeeds(dummyPostsData)
+    try {
+      setLoading(true)
+      const { data } = await api.get('/api/post/feed', {
+        headers: {
+          Authorization: `Bearer ${await getToken()}`
+        }
+      })
+
+      if (data.success) {
+        setFeeds(Array.isArray(data.posts) ? data.posts : [])
+      } else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+    }
     setLoading(false)
   }
 
@@ -26,11 +42,13 @@ const Feed = () => {
       <div>
         <StoriesBar />
         <div className='p-4 space-y-6'>
-          {
+          {Array.isArray(feeds) && feeds.length > 0 ? (
             feeds.map((post) => (
               <PostCard key={post._id} post={post} />
             ))
-          }
+          ) : (
+            <p className="text-center text-slate-500">No posts yet</p>
+          )}
         </div>
       </div>
 
@@ -48,3 +66,12 @@ const Feed = () => {
 }
 
 export default Feed
+
+
+
+
+
+
+
+
+

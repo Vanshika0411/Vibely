@@ -1,50 +1,95 @@
-import React from 'react'
-import { Route, Routes } from 'react-router-dom'
-import Login from './pages/Login'
-import Feed from './pages/Feed'
-import Messages from './pages/Messages'
-import ChatBox from './pages/ChatBox'
-import Connections from './pages/Connections'
-import Discover from './pages/Discover'
-import Profile from './pages/Profile'
-import CreatePost from './pages/CreatePost'
-import { useUser, useAuth } from '@clerk/clerk-react'
-import Layout from './pages/Layout'
-import { Toaster } from 'react-hot-toast'
-import { useEffect } from 'react'
+import React, { useRef, useEffect } from "react";
+import { Route, Routes, useLocation } from "react-router-dom";
+import Login from "./pages/Login";
+import Feed from "./pages/Feed";
+import Messages from "./pages/Messages";
+import ChatBox from "./pages/ChatBox";
+import Connections from "./pages/Connections";
+import Discover from "./pages/Discover";
+import Profile from "./pages/Profile";
+import CreatePost from "./pages/CreatePost";
+import { useUser, useAuth } from "@clerk/clerk-react";
+import Layout from "./pages/Layout";
+import toast, { Toaster } from "react-hot-toast";
+import { useDispatch } from "react-redux";
+import { fetchUser } from "./features/user/userSlice";
+import { fetchConnections } from "./features/connections/connectionsSlice";
+import { addMessage } from "./features/messages/messagesSlice";
+import Notification from "./components/Notification";
 
 const App = () => {
-    const { user } = useUser()
-    const { getToken } = useAuth()
+  const { user } = useUser();
+  const { getToken } = useAuth();
+  const { pathname } = useLocation();
+  const pathnameRef = useRef(pathname);
 
-    // useEffect(() => {
-    //     if (user) {
-    //         getToken().then((token) => console.log(token))
-    //     }
-    // }, [user, getToken])
-    useEffect(() => {
-        if (user) {
-            getToken().then((token) => console.log(token))
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (user) {
+        try {
+          const token = await getToken();
+          dispatch(fetchUser(token));
+          dispatch(fetchConnections(token));
+        } catch (err) {
+          console.error("Error fetching user/connections:", err);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user])
-    return (
-        <>
-            <Toaster />
-            <Routes>
-                <Route path='/' element={!user ? <Login /> : <Layout />}>
-                    <Route index element={<Feed />} />
-                    <Route path='messages' element={<Messages />} />
-                    <Route path='messages/:userId' element={<ChatBox />} />
-                    <Route path='connections' element={<Connections />} />
-                    <Route path='discover' element={<Discover />} />
-                    <Route path='profile' element={<Profile />} />
-                    <Route path='profile/:profileId' element={<Profile />} />
-                    <Route path='create-post' element={<CreatePost />} />
-                </Route>
-            </Routes>
-        </>
-    )
-}
+      }
+    };
+    fetchData();
+  }, [user, getToken, dispatch]);
 
-export default App
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
+  useEffect(() => {
+    if (user?._id) {
+      const eventSource = new EventSource(`${import.meta.env.VITE_BASEURL}/api/message/sse/${user._id}`);
+
+      eventSource.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          const fromUserId = message?.from_user_id?._id;
+          if (fromUserId && pathnameRef.current === `/messages/${fromUserId}`) {
+            dispatch(addMessage(message));
+          }else{
+            toast.custom((t)=>(
+              <Notification t={t} message={message}/>
+            ), {position: "bottom-right"})
+          }
+        } catch (err) {
+          console.error("SSE parse error:", err);
+        }
+      };
+
+      eventSource.onerror = (err) => {
+        console.error("SSE error:", err);
+        eventSource.close();
+      };
+
+      return () => eventSource.close();
+    }
+  }, [user, dispatch]);
+
+  return (
+    <>
+      <Toaster />
+      <Routes>
+        <Route path="/" element={!user ? <Login /> : <Layout />}>
+          <Route index element={<Feed />} />
+          <Route path="messages" element={<Messages />} />
+          <Route path="messages/:userId" element={<ChatBox />} />
+          <Route path="connections" element={<Connections />} />
+          <Route path="discover" element={<Discover />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path="profile/:profileId" element={<Profile />} />
+          <Route path="create-post" element={<CreatePost />} />
+        </Route>
+      </Routes>
+    </>
+  );
+};
+
+export default App;

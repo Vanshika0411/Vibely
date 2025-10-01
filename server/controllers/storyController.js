@@ -8,10 +8,11 @@ export const addUserStory = async (req, res) => {
   try {
     const { userId } = req.auth();
     const { content, media_type, background_color } = req.body;
-    const media = req.file;
+    const media = req.file; // ye image/video ho sakta hai
     let media_url = "";
 
-    if (media_type == "image" || media_type == "video") {
+    // ✅ Agar media file hai (image ya video)
+    if (media && (media_type === "image" || media_type === "video")) {
       const fileBuffer = fs.readFileSync(media.path);
       const response = await imagekit.upload({
         file: fileBuffer,
@@ -20,22 +21,24 @@ export const addUserStory = async (req, res) => {
       media_url = response.url;
     }
 
+    // ✅ Story create karo
     const story = await Story.create({
       user: userId,
-      content,
+      content: content || "", // agar sirf image/video hai to content optional
       media_url,
-      media_type,
-      background_color,
+      media_type: media_type || "text", // default agar kuch nahi aaya to text
+      background_color: background_color || null,
     });
 
+    // ✅ Auto delete after expiry (e.g., 24h) - Inngest event
     await inngest.send({
       name: "app/story.delete",
       data: { storyId: story._id },
     });
 
-    res.json({ success: true });
+    res.json({ success: true, story });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -47,6 +50,7 @@ export const getStories = async (req, res) => {
 
     const userIds = [userId, ...user.connections, ...user.following];
 
+    // ✅ Saare stories fetch + user populate
     const stories = await Story.find({
       user: { $in: userIds },
     })
@@ -55,7 +59,7 @@ export const getStories = async (req, res) => {
 
     res.json({ success: true, stories });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.json({ success: false, message: error.message });
   }
 };

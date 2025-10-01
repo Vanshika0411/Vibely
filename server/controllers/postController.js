@@ -16,13 +16,13 @@ export const addPost = async (req, res) => {
         images.map(async (image) => {
           const fileBuffer = fs.readFileSync(image.path);
 
-          const response = await imagekit.upload({
+          const response = await imageKit.upload({
             file: fileBuffer,
             fileName: image.originalname,
             folder: "posts",
           });
 
-          const url = imagekit.url({
+          const url = imageKit.url({
             path: response.filePath,
             transformation: [
               { quality: "auto" },
@@ -54,10 +54,13 @@ export const getFeedPosts = async (req, res) => {
     const { userId } = req.auth();
     const user = await User.findById(userId);
 
-    const userIds = [userId, ...user.connections, ...user, following];
-    const posts = (
-      await Post.find({ user: { $in: userIds } }).populate("user")
-    ).toSorted({ createdAt: -1 });
+    // ✅ fix: sirf arrays spread kiye (connections + following)
+    const userIds = [userId, ...user.connections, ...user.following];
+
+    // ✅ fix: Mongoose me .sort use karo, .toSorted() nahi
+    const posts = await Post.find({ user: { $in: userIds } })
+      .populate("user")
+      .sort({ createdAt: -1 });
 
     res.json({ success: true, posts });
   } catch (error) {
