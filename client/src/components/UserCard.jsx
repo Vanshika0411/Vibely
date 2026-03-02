@@ -19,12 +19,14 @@ const UserCard = ({ user }) => {
       const { data } = await api.post(
         "/api/user/follow",
         { id: user._id },
-        { headers: { Authorization: `Bearer ${await getToken()}` } }
+        // { headers: { Authorization: `Bearer ${await getToken()}` } }
+        { headers: { Authorization: `Bearer ${await getToken({ skipCache: true })}` } }
       );
 
       if (data.success) {
         toast.success(data.message);
-        dispatch(fetchUser(await getToken())); // ✅ correct action dispatch
+        // dispatch(fetchUser(await getToken())); // ✅ correct action dispatch
+        dispatch(fetchUser(await getToken({ skipCache: true })));
       } else {
         toast.error(data.message);
       }
@@ -42,7 +44,8 @@ const UserCard = ({ user }) => {
       const { data } = await api.post(
         "/api/user/connect",
         { id: user._id },
-        { headers: { Authorization: `Bearer ${await getToken()}` } }
+        // { headers: { Authorization: `Bearer ${await getToken()}` } }
+        { headers: { Authorization: `Bearer ${await getToken({ skipCache: true })}` } }
       );
 
       if (data.success) {

@@ -29,7 +29,8 @@ const App = () => {
     const fetchData = async () => {
       if (user) {
         try {
-          const token = await getToken();
+          // const token = await getToken();
+          const token = await getToken({ skipCache: true });
           dispatch(fetchUser(token));
           dispatch(fetchConnections(token));
         } catch (err) {
