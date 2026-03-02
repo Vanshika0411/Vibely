@@ -13,7 +13,12 @@ const app = express();
 await connectDB();
 
 app.use(express.json());
-app.use(cors());
+// app.use(cors());
+
+app.use(cors({
+  origin: "https://vibely-gilt.vercel.app/",
+  credentials: true
+}));
 app.use(clerkMiddleware());
 
 // Serve uploaded images
