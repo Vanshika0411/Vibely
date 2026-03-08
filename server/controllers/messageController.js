@@ -85,10 +85,7 @@ export const sseController = async (req, res) => {
 
     const userId = session.sub; // Clerk's user ID from session
 
-    res.setHeader(
-      "Access-Control-Allow-Origin",
-      "https://vibely-gilt.vercel.app",
-    );
+    res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
