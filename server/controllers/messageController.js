@@ -1,6 +1,6 @@
 import Message from "../models/Message.js";
+import { verifyToken } from "@clerk/clerk-sdk-node"; // Correct import for Clerk SDK
 import User from "../models/User.js";
-import jwt from "jsonwebtoken";
 
 export const sendMessage = async (req, res) => {
   try {
@@ -64,21 +64,26 @@ export const getUserRecentMessages = async (req, res) => {
 };
 
 // SSE for real-time messages
-export const sseController = (req, res) => {
+export const sseController = async (req, res) => {
   try {
     const token = req.query.token;
     if (!token) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    let decoded;
+    let session;
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
+      // Using Clerk's verifyToken method
+      session = await verifyToken(token, {
+        secretKey: process.env.CLERK_SECRET_KEY, // Use Clerk's secret key here
+      });
     } catch (err) {
-      return res.status(401).json({ success: false, message: "Invalid token" });
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid Clerk token" });
     }
 
-    const userId = decoded.id || decoded._id; // jwt payload me jo bhi field hai
+    const userId = session.sub;  // Clerk's user ID from session
 
     res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
     res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -110,6 +115,7 @@ export const sseController = (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 export const markMessagesAsSeen = async (req, res) => {
   try {
     const currentUserId = req.user._id; // logged-in user
@@ -117,7 +123,7 @@ export const markMessagesAsSeen = async (req, res) => {
 
     await Message.updateMany(
       { from_user_id: otherUserId, to_user_id: currentUserId, seen: false },
-      { $set: { seen: true } },
+      { $set: { seen: true } }
     );
 
     res.status(200).json({ success: true, message: "Messages marked as seen" });
