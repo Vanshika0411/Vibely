@@ -1,15 +1,27 @@
 import User from "../models/User.js";
+import { getAuth } from "@clerk/clerk-sdk-node"; // backend SDK
 
 export const protect = async (req, res, next) => {
   try {
-    const { userId } = req.auth();
-
-    if (!userId) {
-      return res.status(401).json({ success: false, message: "Not authenticated" });
+    const { authorization } = req.headers;
+    if (!authorization) {
+      return res.status(401).json({ success: false, message: "No token provided" });
     }
 
-    const user = await User.findById(userId);
+    const token = authorization.replace("Bearer ", "");
 
+    // Clerk token verify
+    let session;
+    try {
+      session = await getAuth(token); // ya verifyToken depending on SDK version
+    } catch (err) {
+      return res.status(401).json({ success: false, message: "Invalid token" });
+    }
+
+    const clerkUserId = session.sub; // Clerk user ID
+
+    // MongoDB me user search
+    const user = await User.findById(clerkUserId);
     if (!user) {
       return res.status(401).json({ success: false, message: "User not found" });
     }
@@ -17,7 +29,7 @@ export const protect = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    console.log("AUTH ERROR:", error);
+    console.error("AUTH ERROR:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
