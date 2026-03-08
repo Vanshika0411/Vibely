@@ -25,42 +25,51 @@ const App = () => {
 
   const dispatch = useDispatch();
 
-  // -----------------------------
-  // Debug: Check if .env loaded
-  // -----------------------------
+  // Debug env
   console.log("Current BASE_URL:", import.meta.env.VITE_BASE_URL);
 
   // -----------------------------
-  // Fetch user & connections
+  // Fetch user + connections
   // -----------------------------
   useEffect(() => {
     const fetchData = async () => {
       if (user) {
         try {
           const token = await getToken({ skipCache: true });
+
           dispatch(fetchUser(token));
           dispatch(fetchConnections(token));
         } catch (err) {
-          console.error("Error fetching user/connections:", err);
+          console.error("Error fetching user data:", err);
         }
       }
     };
+
     fetchData();
   }, [user, getToken, dispatch]);
 
+  // -----------------------------
+  // Track current route
+  // -----------------------------
   useEffect(() => {
     pathnameRef.current = pathname;
   }, [pathname]);
 
   // -----------------------------
-  // SSE for messages
+  // SSE real-time messages
   // -----------------------------
   useEffect(() => {
-    const userId = user?.id || user?._id;
-    if (userId) {
-      const fetchSSE = async () => {
+    let eventSource;
+
+    const connectSSE = async () => {
+      const userId = user?.id || user?._id;
+
+      if (!userId) return;
+
+      try {
         const token = await getToken({ skipCache: true });
-        const eventSource = new EventSource(
+
+        eventSource = new EventSource(
           `${import.meta.env.VITE_BASE_URL}/api/message/sse/${userId}?token=${token}`
         );
 
@@ -68,10 +77,16 @@ const App = () => {
           try {
             const message = JSON.parse(event.data);
             const fromUserId = message?.from_user_id?._id;
-            if (fromUserId && pathnameRef.current === `/messages/${fromUserId}`) {
+
+            if (
+              fromUserId &&
+              pathnameRef.current === `/messages/${fromUserId}`
+            ) {
               dispatch(addMessage(message));
             } else {
-              toast.custom((t) => <Notification t={t} message={message} />, {
+              toast.custom((t) => (
+                <Notification t={t} message={message} />
+              ), {
                 position: "bottom-right",
               });
             }
@@ -81,23 +96,28 @@ const App = () => {
         };
 
         eventSource.onerror = (err) => {
-          console.error("SSE error:", err);
+          console.error("SSE connection error:", err);
           eventSource.close();
         };
+      } catch (err) {
+        console.error("SSE setup error:", err);
+      }
+    };
 
-        return () => eventSource.close();
-      };
+    connectSSE();
 
-      fetchSSE();
-    }
+    return () => {
+      if (eventSource) eventSource.close();
+    };
   }, [user, dispatch, getToken]);
 
   // -----------------------------
-  // JSX
+  // UI
   // -----------------------------
   return (
     <>
       <Toaster />
+
       {!isLoaded ? (
         <div style={{ textAlign: "center", marginTop: "100px" }}>
           Loading...

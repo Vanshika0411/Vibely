@@ -1,5 +1,5 @@
 import Message from "../models/Message.js";
-import { verifyToken } from "@clerk/clerk-sdk-node"; // Correct import for Clerk SDK
+import { verifyToken } from "@clerk/backend";
 import User from "../models/User.js";
 
 export const sendMessage = async (req, res) => {
@@ -83,9 +83,12 @@ export const sseController = async (req, res) => {
         .json({ success: false, message: "Invalid Clerk token" });
     }
 
-    const userId = session.sub;  // Clerk's user ID from session
+    const userId = session.sub; // Clerk's user ID from session
 
-    res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+    res.setHeader(
+      "Access-Control-Allow-Origin",
+      "https://vibely-gilt.vercel.app",
+    );
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
@@ -110,7 +113,10 @@ export const sseController = async (req, res) => {
       }
     }, 2000);
 
-    req.on("close", () => clearInterval(interval));
+    req.on("close", () => {
+      clearInterval(interval);
+      res.end();
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -123,7 +129,7 @@ export const markMessagesAsSeen = async (req, res) => {
 
     await Message.updateMany(
       { from_user_id: otherUserId, to_user_id: currentUserId, seen: false },
-      { $set: { seen: true } }
+      { $set: { seen: true } },
     );
 
     res.status(200).json({ success: true, message: "Messages marked as seen" });
