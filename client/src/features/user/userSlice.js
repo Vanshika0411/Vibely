@@ -59,10 +59,9 @@ export const fetchUser = createAsyncThunk(
   "user/fetchUser",
   async (token, { rejectWithValue }) => {
     try {
-      // Agar token nahi hai to request mat bhejo
       if (!token) return rejectWithValue("No token provided");
 
-      const { data } = await api.put("/api/user/update", userData, {
+      const { data } = await api.get("/api/user/data", {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -70,10 +69,10 @@ export const fetchUser = createAsyncThunk(
     } catch (error) {
       console.log(error);
       return rejectWithValue(
-        error.response?.data?.message || "Failed to fetch user",
+        error.response?.data?.message || "Failed to fetch user"
       );
     }
-  },
+  }
 );
 
 // ✅ Update user

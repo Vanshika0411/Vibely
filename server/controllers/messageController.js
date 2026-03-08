@@ -80,6 +80,8 @@ export const sseController = (req, res) => {
 
     const userId = decoded.id || decoded._id; // jwt payload me jo bhi field hai
 
+    res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
@@ -110,12 +112,12 @@ export const sseController = (req, res) => {
 };
 export const markMessagesAsSeen = async (req, res) => {
   try {
-    const currentUserId = req.user._id;  // logged-in user
+    const currentUserId = req.user._id; // logged-in user
     const otherUserId = req.params.chatId; // jis user ke saath chat hai
 
     await Message.updateMany(
       { from_user_id: otherUserId, to_user_id: currentUserId, seen: false },
-      { $set: { seen: true } }
+      { $set: { seen: true } },
     );
 
     res.status(200).json({ success: true, message: "Messages marked as seen" });
@@ -123,5 +125,3 @@ export const markMessagesAsSeen = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
