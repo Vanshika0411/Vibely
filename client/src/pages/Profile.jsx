@@ -22,12 +22,12 @@ const Profile = () => {
   const [showEdit, setShowEdit] = useState(false);
 
   const fetchUser = async (profileId) => {
-    const token = await getToken();
+    const token = await getToken({ skipCache: true });
     try {
       const { data } = await api.post(
         `/api/user/profiles`,
         { profileId },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       if (data.success) {
@@ -44,11 +44,10 @@ const Profile = () => {
   useEffect(() => {
     if (profileId) {
       fetchUser(profileId);
-    } else {
+    } else if (currentUser?._id) {
       fetchUser(currentUser._id);
     }
   }, [profileId, currentUser]);
-
   return user ? (
     <div className="relative h-full overflow-y-scroll bg-gray-50 p-6">
       <div className="max-w-3xl mx-auto">
@@ -57,7 +56,7 @@ const Profile = () => {
           <div className="h-40 md:h-56 bg-gradient-to-r from-indigo-200 via-purple-200 to-pink-200">
             {user.cover_photo && (
               <img
-                src={user.cover_photo}
+                src={user.cover_photo || "/default-cover.jpg"}
                 alt=""
                 className="w-full h-full object-cover"
               />
@@ -105,7 +104,7 @@ const Profile = () => {
           {activeTab === "media" && (
             <div className="flex flex-wrap mt-6 max-w-6xl gap-4">
               {posts
-                .filter((post) => post.image_urls.length > 0)
+                .filter((post) => post.image_urls && post.image_urls.length > 0)
                 .map((post) =>
                   post.image_urls.map((image, index) => (
                     <Link
@@ -123,7 +122,7 @@ const Profile = () => {
                         Posted {moment(post.createdAt).fromNow()}
                       </p>
                     </Link>
-                  ))
+                  )),
                 )}
             </div>
           )}

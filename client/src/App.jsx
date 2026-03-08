@@ -1,3 +1,102 @@
+// import React, { useRef, useEffect } from "react";
+// import { Route, Routes, useLocation } from "react-router-dom";
+// import Login from "./pages/Login";
+// import Feed from "./pages/Feed";
+// import Messages from "./pages/Messages";
+// import ChatBox from "./pages/ChatBox";
+// import Connections from "./pages/Connections";
+// import Discover from "./pages/Discover";
+// import Profile from "./pages/Profile";
+// import CreatePost from "./pages/CreatePost";
+// import { useUser, useAuth } from "@clerk/clerk-react";
+// import Layout from "./pages/Layout";
+// import toast, { Toaster } from "react-hot-toast";
+// import { useDispatch } from "react-redux";
+// import { fetchUser } from "./features/user/userSlice";
+// import { fetchConnections } from "./features/connections/connectionsSlice";
+// import { addMessage } from "./features/messages/messagesSlice";
+// import Notification from "./components/Notification";
+
+// const App = () => {
+//   const { user } = useUser();
+//   const { getToken } = useAuth();
+//   const { pathname } = useLocation();
+//   const pathnameRef = useRef(pathname);
+
+//   const dispatch = useDispatch();
+
+//   useEffect(() => {
+//     const fetchData = async () => {
+//       if (user) {
+//         try {
+//           // const token = await getToken();
+//           const token = await getToken({ skipCache: true });
+//           dispatch(fetchUser(token));
+//           dispatch(fetchConnections(token));
+//         } catch (err) {
+//           console.error("Error fetching user/connections:", err);
+//         }
+//       }
+//     };
+//     fetchData();
+//   }, [user, getToken, dispatch]);
+
+//   useEffect(() => {
+//     pathnameRef.current = pathname;
+//   }, [pathname]);
+
+//   useEffect(() => {
+//     if (user?._id) {
+//       const eventSource = new EventSource(`${import.meta.env.VITE_BASEURL}/api/message/sse/${user._id}`);
+
+//       eventSource.onmessage = (event) => {
+//         try {
+//           const message = JSON.parse(event.data);
+//           const fromUserId = message?.from_user_id?._id;
+//           if (fromUserId && pathnameRef.current === `/messages/${fromUserId}`) {
+//             dispatch(addMessage(message));
+//           }else{
+//             toast.custom((t)=>(
+//               <Notification t={t} message={message}/>
+//             ), {position: "bottom-right"})
+//           }
+//         } catch (err) {
+//           console.error("SSE parse error:", err);
+//         }
+//       };
+
+//       eventSource.onerror = (err) => {
+//         console.error("SSE error:", err);
+//         eventSource.close();
+//       };
+
+//       return () => eventSource.close();
+//     }
+//   }, [user, dispatch]);
+
+//   return (
+//     <>
+//       <Toaster />
+//       <Routes>
+//         <Route path="/" element={!user ? <Login /> : <Layout />}>
+//           <Route index element={<Feed />} />
+//           <Route path="messages" element={<Messages />} />
+//           <Route path="messages/:userId" element={<ChatBox />} />
+//           <Route path="connections" element={<Connections />} />
+//           <Route path="discover" element={<Discover />} />
+//           <Route path="profile" element={<Profile />} />
+//           <Route path="profile/:profileId" element={<Profile />} />
+//           <Route path="create-post" element={<CreatePost />} />
+//         </Route>
+//       </Routes>
+//     </>
+//   );
+// };
+
+// export default App;
+
+
+
 import React, { useRef, useEffect } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
 import Login from "./pages/Login";
@@ -18,18 +117,25 @@ import { addMessage } from "./features/messages/messagesSlice";
 import Notification from "./components/Notification";
 
 const App = () => {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const { getToken } = useAuth();
   const { pathname } = useLocation();
   const pathnameRef = useRef(pathname);
 
   const dispatch = useDispatch();
 
+  // -----------------------------
+  // Debug: Check if .env loaded
+  // -----------------------------
+  console.log("Current BASEURL:", import.meta.env.VITE_BASEURL);
+
+  // -----------------------------
+  // Fetch user & connections
+  // -----------------------------
   useEffect(() => {
     const fetchData = async () => {
       if (user) {
         try {
-          // const token = await getToken();
           const token = await getToken({ skipCache: true });
           dispatch(fetchUser(token));
           dispatch(fetchConnections(token));
@@ -45,9 +151,15 @@ const App = () => {
     pathnameRef.current = pathname;
   }, [pathname]);
 
+  // -----------------------------
+  // SSE for messages
+  // -----------------------------
   useEffect(() => {
-    if (user?._id) {
-      const eventSource = new EventSource(`${import.meta.env.VITE_BASEURL}/api/message/sse/${user._id}`);
+    const userId = user?.id || user?._id;
+    if (userId) {
+      const eventSource = new EventSource(
+        `${import.meta.env.VITE_BASEURL}/api/message/sse/${userId}`
+      );
 
       eventSource.onmessage = (event) => {
         try {
@@ -55,10 +167,10 @@ const App = () => {
           const fromUserId = message?.from_user_id?._id;
           if (fromUserId && pathnameRef.current === `/messages/${fromUserId}`) {
             dispatch(addMessage(message));
-          }else{
-            toast.custom((t)=>(
-              <Notification t={t} message={message}/>
-            ), {position: "bottom-right"})
+          } else {
+            toast.custom((t) => <Notification t={t} message={message} />, {
+              position: "bottom-right",
+            });
           }
         } catch (err) {
           console.error("SSE parse error:", err);
@@ -74,21 +186,30 @@ const App = () => {
     }
   }, [user, dispatch]);
 
+  // -----------------------------
+  // JSX
+  // -----------------------------
   return (
     <>
       <Toaster />
-      <Routes>
-        <Route path="/" element={!user ? <Login /> : <Layout />}>
-          <Route index element={<Feed />} />
-          <Route path="messages" element={<Messages />} />
-          <Route path="messages/:userId" element={<ChatBox />} />
-          <Route path="connections" element={<Connections />} />
-          <Route path="discover" element={<Discover />} />
-          <Route path="profile" element={<Profile />} />
-          <Route path="profile/:profileId" element={<Profile />} />
-          <Route path="create-post" element={<CreatePost />} />
-        </Route>
-      </Routes>
+      {!isLoaded ? (
+        <div style={{ textAlign: "center", marginTop: "100px" }}>
+          Loading...
+        </div>
+      ) : (
+        <Routes>
+          <Route path="/" element={!user ? <Login /> : <Layout />}>
+            <Route index element={<Feed />} />
+            <Route path="messages" element={<Messages />} />
+            <Route path="messages/:userId" element={<ChatBox />} />
+            <Route path="connections" element={<Connections />} />
+            <Route path="discover" element={<Discover />} />
+            <Route path="profile" element={<Profile />} />
+            <Route path="profile/:profileId" element={<Profile />} />
+            <Route path="create-post" element={<CreatePost />} />
+          </Route>
+        </Routes>
+      )}
     </>
   );
 };
