@@ -8,7 +8,7 @@ import Connections from "./pages/Connections";
 import Discover from "./pages/Discover";
 import Profile from "./pages/Profile";
 import CreatePost from "./pages/CreatePost";
-import { useUser, useAuth } from "@clerk/clerk-react";
+import { useUser } from "@clerk/clerk-react";
 import Layout from "./pages/Layout";
 import toast, { Toaster } from "react-hot-toast";
 import { useDispatch } from "react-redux";
@@ -18,59 +18,56 @@ import { addMessage } from "./features/messages/messagesSlice";
 import Notification from "./components/Notification";
 
 const App = () => {
-  const { user } = useUser();
-  const { getToken } = useAuth();
+  const { user } = useUser();  // Automatically provides the user
   const { pathname } = useLocation();
   const pathnameRef = useRef(pathname);
-
   const dispatch = useDispatch();
 
+  // ✅ Fetch user & connections (without token)
   useEffect(() => {
-    const fetchData = async () => {
-      if (user) {
-        try {
-          const token = await getToken();
-          dispatch(fetchUser(token));
-          dispatch(fetchConnections(token));
-        } catch (err) {
-          console.error("Error fetching user/connections:", err);
-        }
-      }
-    };
-    fetchData();
-  }, [user, getToken, dispatch]);
+    if (!user) return; // Wait until user is loaded
 
+    // Dispatch user & connections without sending token manually
+    dispatch(fetchUser());
+    dispatch(fetchConnections());
+  }, [user, dispatch]);
+
+  // Track pathname for SSE notifications
   useEffect(() => {
     pathnameRef.current = pathname;
   }, [pathname]);
 
+  // ✅ SSE for live messages
   useEffect(() => {
-    if (user?._id) {
-      const eventSource = new EventSource(`${import.meta.env.VITE_BASEURL}/api/message/sse/${user._id}`);
+    if (!user?._id) return;
 
-      eventSource.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data);
-          const fromUserId = message?.from_user_id?._id;
-          if (fromUserId && pathnameRef.current === `/messages/${fromUserId}`) {
-            dispatch(addMessage(message));
-          }else{
-            toast.custom((t)=>(
-              <Notification t={t} message={message}/>
-            ), {position: "bottom-right"})
-          }
-        } catch (err) {
-          console.error("SSE parse error:", err);
+    const eventSource = new EventSource(
+      `${import.meta.env.VITE_BASEURL}/api/message/sse/${user._id}`
+    );
+
+    eventSource.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        const fromUserId = message?.from_user_id?._id;
+
+        if (fromUserId && pathnameRef.current === `/messages/${fromUserId}`) {
+          dispatch(addMessage(message));
+        } else {
+          toast.custom((t) => <Notification t={t} message={message} />, {
+            position: "bottom-right",
+          });
         }
-      };
+      } catch (err) {
+        console.error("SSE parse error:", err);
+      }
+    };
 
-      eventSource.onerror = (err) => {
-        console.error("SSE error:", err);
-        eventSource.close();
-      };
+    eventSource.onerror = (err) => {
+      console.error("SSE error:", err);
+      eventSource.close();
+    };
 
-      return () => eventSource.close();
-    }
+    return () => eventSource.close();
   }, [user, dispatch]);
 
   return (
